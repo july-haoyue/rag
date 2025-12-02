@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>迪士尼RAG助手</title>
+    <!-- 直接引入外部CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+    
+    <!-- Tailwind 配置 -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#fd85a6',
+                        secondary: '#666666',
+                    },
+                }
+            }
+        }
+    </script>
+    
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .content-auto {
+                content-visibility: auto;
+            }
+        }
+    </style>
+    
+    <style>
+        body {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+        .main-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 2rem;
+        }
+    </style>
+</head>
+<body class="bg-white">
+    <!-- 导航栏 -->
+    <nav class="bg-white border-b border-gray-200 py-3 px-4 flex items-center justify-between">
+        <div class="text-xl font-bold" style="color: #fd85a6;">迪士尼RAG助手</div>
+        <!-- 系统状态指示器 -->
+        <div>
+            <span id="system-status" class="text-sm" style="color: #666666;">系统初始化中</span>
+        </div>
+    </nav>
+
+    <!-- 主要内容区域 -->
+    <div class="main-content">
+        <!-- 标题和图片水平排列 -->
+       <div class="flex items-center justify-center mb-4" style="gap: 0;">
+  <img src="/static/米奇一扇粉色门.png" alt="迪士尼角色" class="flex-shrink-0 h-20 object-contain" style="margin: 0;">
+  <div style="margin: 0;">
+    <h2 class="text-2xl font-bold text-gray-900" style="margin: 0;">有什么关于迪士尼的问题？</h2>
+    <p class="text-gray-600 mt-1" style="margin: 0;">我可以帮助你了解迪士尼乐园的各种信息</p>
+  </div>
+</div>
+        
+        <!-- 搜索表单 - 输入框要长一点 -->
+        <form id="searchForm" class="w-full max-w-3xl mb-6">
+            <div class="relative">
+                <input 
+                    type="text" 
+                    id="searchInput" 
+                    placeholder="请输入你的问题..." 
+                    class="w-full px-6 py-4 rounded-lg border border-primary shadow-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary text-lg"
+                >
+                <button 
+                    type="submit" 
+                    id="searchButton" 
+                    class="absolute right-2 top-1/2 transform -translate-y-1/2 bg-primary text-white px-6 py-2 rounded-lg hover:bg-primary/90 transition-colors"
+                >
+                    <i class="fa fa-search text-white mr-1"></i> 提问
+                </button>
+            </div>
+        </form>
+        
+        <!-- 示例问题 -->
+        <div class="flex flex-wrap justify-center gap-3 mb-12 items-center">
+            <span class="text-sm text-secondary">示例问题：</span>
+            <span class="example-query px-4 py-2 bg-gray-100 rounded-full text-sm cursor-pointer hover:bg-gray-200">迪士尼乐园门票价格</span>
+            <span class="example-query px-4 py-2 bg-gray-100 rounded-full text-sm cursor-pointer hover:bg-gray-200">有哪些必玩项目</span>
+            <span class="example-query px-4 py-2 bg-gray-100 rounded-full text-sm cursor-pointer hover:bg-gray-200">开放时间</span>
+        </div>
+        
+        <!-- 欢迎区域 -->
+        <div id="welcomeSection" class="max-w-2xl mx-auto bg-white rounded-lg p-8 text-center">
+            <i class="fa fa-magic text-primary text-5xl mx-auto mb-4" style="color: #fd85a6;"></i>
+            <h3 class="text-xl font-semibold text-secondary mb-2">欢迎使用迪士尼RAG助手</h3>
+            <p class="text-secondary">请在上方输入框中输入您关于迪士尼乐园的问题</p>
+        </div>
+        
+        <!-- 加载指示器 -->
+        <div id="loadingIndicator" class="hidden max-w-3xl mx-auto text-center py-12">
+            <div class="inline-block animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-primary"></div>
+            <p class="mt-4 text-secondary">正在为您查找相关信息...</p>
+        </div>
+        
+        <!-- 错误信息 -->
+        <div id="errorMessage" class="hidden max-w-3xl mx-auto bg-red-50 border border-red-200 rounded-lg p-6">
+            <div class="flex">
+                <div class="flex-shrink-0">
+                    <i class="fa fa-exclamation-circle text-red-500 text-xl"></i>
+                </div>
+                <div class="ml-3">
+                    <h3 class="text-red-800 font-medium">操作失败</h3>
+                    <div class="mt-2 text-red-700">
+                        <p id="errorText">发生错误，请稍后重试</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 结果区域 -->
+        <div id="resultsSection" class="hidden max-w-3xl mx-auto">
+            <!-- 回答内容 -->
+            <div class="bg-white rounded-lg p-6 mb-6">
+                <h3 class="text-lg font-semibold text-secondary mb-4 flex items-center justify-between">
+                    <div class="flex items-center">
+                        <i class="fa fa-comment-o text-primary mr-2" style="color: #fd85a6;"></i> 回答
+                    </div>
+                    <button id="speechButton" class="text-primary hover:text-primary/80 transition-colors">
+                        <i class="fa fa-volume-up mr-1" style="color: #fd85a6;"></i> 语音播放
+                    </button>
+                </h3>
+                <div id="answerContent" class="text-secondary space-y-4"></div>
+            </div>
+            
+            <!-- 参考来源 -->
+            <div class="bg-white rounded-lg p-6">
+                <h3 class="text-lg font-semibold text-secondary mb-4 flex items-center">
+                    <i class="fa fa-magic text-primary mr-2" style="color: #fd85a6;"></i> 参考来源
+                </h3>
+                <div id="sourcesList" class="space-y-3"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 底部图片和页脚水平排列 -->
+    <div class="mt-auto">
+        <div class="py-4">
+            <img src="/static/米奇.png" alt="迪士尼角色" class="w-full h-auto object-contain max-h-40">
+        </div>
+        
+        <!-- 页脚 -->
+        <footer class="py-3">
+            <p class="text-center text-secondary text-sm">© 2025 迪士尼RAG助手 - 仅供学习使用</p>
+        </footer>
+    </div>
+
+    <!-- JavaScript -->
+    <script>
+        // 检查系统状态
+        function checkSystemStatus() {
+            fetch('/api/config')
+                .then(response => {
+                    if (response.ok) {
+                        return response.json();
+                    }
+                    return { status: 'error' };
+                })
+                .then(data => {
+                    const statusElement = document.getElementById('system-status');
+                    if (statusElement) {
+                        if (data.status === 'ready') {
+                            statusElement.textContent = '系统就绪';
+                            statusElement.className = 'text-sm';
+                            statusElement.style.color = '#666666';
+                        } else {
+                            statusElement.textContent = '系统初始化中';
+                            statusElement.className = 'text-sm';
+                            statusElement.style.color = '#666666';
+                        }
+                    }
+                })
+                .catch(error => {
+                    const statusElement = document.getElementById('system-status');
+                    if (statusElement) {
+                        statusElement.textContent = '系统状态未知';
+                        statusElement.className = 'text-sm';
+                        statusElement.style.color = '#666666';
+                    }
+                });
+        }
+
+        // 页面加载完成后初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            // 检查系统状态
+            checkSystemStatus();
+            
+            // 获取DOM元素
+            const searchForm = document.getElementById('searchForm');
+            const searchInput = document.getElementById('searchInput');
+            const loadingIndicator = document.getElementById('loadingIndicator');
+            const resultsSection = document.getElementById('resultsSection');
+            const welcomeSection = document.getElementById('welcomeSection');
+            const errorMessage = document.getElementById('errorMessage');
+            const errorText = document.getElementById('errorText');
+            const answerContent = document.getElementById('answerContent');
+            const sourcesList = document.getElementById('sourcesList');
+            const exampleQueries = document.querySelectorAll('.example-query');
+            
+            // 显示/隐藏加载状态
+            function showLoading(show = true) {
+                const loadingIndicator = document.getElementById('loadingIndicator');
+                const resultsSection = document.getElementById('resultsSection');
+                const welcomeSection = document.getElementById('welcomeSection');
+                const errorMessage = document.getElementById('errorMessage');
+                
+                if (show) {
+                    // 显示加载状态，隐藏其他内容
+                    if (loadingIndicator) loadingIndicator.classList.remove('hidden');
+                    if (resultsSection) resultsSection.classList.add('hidden');
+                    if (welcomeSection) welcomeSection.classList.add('hidden');
+                    if (errorMessage) errorMessage.classList.add('hidden');
+                } else {
+                    // 隐藏加载状态
+                    if (loadingIndicator) loadingIndicator.classList.add('hidden');
+                }
+            }
+            
+            // 显示错误信息
+            function showError(message) {
+                const errorText = document.getElementById('errorText');
+                const errorMessage = document.getElementById('errorMessage');
+                const loadingIndicator = document.getElementById('loadingIndicator');
+                
+                if (errorText) errorText.textContent = message;
+                if (errorMessage) errorMessage.classList.remove('hidden');
+                if (loadingIndicator) loadingIndicator.classList.add('hidden');
+            }
+            
+            // 搜索表单提交事件
+            if (searchForm && searchInput) {
+                searchForm.addEventListener('submit', function(e) {
+                    e.preventDefault();
+                    const query = searchInput.value.trim();
+                    
+                    if (!query) {
+                        showError('请输入搜索内容');
+                        return;
+                    }
+                    
+                    // 显示加载状态
+                    showLoading();
+                    
+                    // 调用生成API
+                    fetch('/api/generate', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ query: query })
+                    })
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error('请求失败');
+                        }
+                        return response.json();
+                    })
+                    .then(data => {
+                        // 使用showLoading函数隐藏加载状态
+                        showLoading(false);
+                        
+                        // 处理响应数据
+                        
+                        if (data.success === true) {
+                            // 成功情况 - 隐藏欢迎和错误区域
+                            if (welcomeSection) welcomeSection.classList.add('hidden');
+                            if (errorMessage) errorMessage.classList.add('hidden');
+                            
+                            // 显示回答内容，确保不会显示[object Object]
+                            let answerText = '';
+                            
+                            // 依次检查各种可能的回答字段
+                            if (data.answer) {
+                                answerText = data.answer;
+                            } else if (data.content) {
+                                answerText = data.content;
+                            } else if (data.response) {
+                                answerText = data.response;
+                            }
+                            
+                            // 处理可能的对象类型回答
+                            if (typeof answerText === 'object') {
+                                // 尝试提取对象中的文本内容
+                                if (answerText.content) answerText = answerText.content;
+                                else if (answerText.text) answerText = answerText.text;
+                                else if (answerText.response) answerText = answerText.response;
+                                else answerText = JSON.stringify(answerText);
+                            }
+                            
+                            answerContent.textContent = answerText || '已找到相关信息，请查看下方参考资料';
+                            
+                            // 显示来源或备选结果
+                            sourcesList.innerHTML = '';
+                            
+                            // 优先处理fallback_results（备选结果）
+                            if (data.fallback_results && Array.isArray(data.fallback_results) && data.fallback_results.length > 0) {
+                                data.fallback_results.forEach((result, index) => {
+                                    const sourceItem = document.createElement('div');
+                                    sourceItem.className = 'bg-gray-50 p-3 rounded-md';
+                                    sourceItem.innerHTML = "<div class=\"text-sm font-medium text-primary\">来源 " + (index + 1) + ": " + (result.filename || '未知来源') + "</div><div class=\"text-sm text-gray-600 mt-1\">" + (result.content || '内容不可用') + "</div>";
+                                    sourcesList.appendChild(sourceItem);
+                                });
+                            }
+                            // 然后处理正常的sources
+                            else if (data.sources && Array.isArray(data.sources) && data.sources.length > 0) {
+                                data.sources.forEach((source, index) => {
+                                    const sourceItem = document.createElement('div');
+                                    sourceItem.className = 'bg-gray-50 p-3 rounded-md';
+                                    
+                                    // 修复：正确处理source对象，避免显示[object Object]
+                                    let sourceContent = '';
+                                    if (typeof source === 'object') {
+                                        // 尝试获取有意义的内容属性
+                                        if (source.content) sourceContent = source.content;
+                                        else if (source.text) sourceContent = source.text;
+                                        else if (source.title) sourceContent = source.title;
+                                        else sourceContent = JSON.stringify(source).substring(0, 100) + '...';
+                                    } else {
+                                        sourceContent = source || '相关内容';
+                                    }
+                                    
+                                    // 添加文件名信息
+                                    let filenameInfo = '';
+                                    if (source && source.filename) {
+                                        filenameInfo = source.filename + ': ';
+                                    }
+                                    
+                                    sourceItem.innerHTML = "<div class=\"text-sm font-medium\">参考 " + (index + 1) + "</div><div class=\"text-sm text-gray-600 mt-1\">" + filenameInfo + sourceContent + "</div>";
+                                    sourcesList.appendChild(sourceItem);
+                                });
+                            }
+                            // 最后处理references（旧格式）
+                            else if (data.references && Array.isArray(data.references) && data.references.length > 0) {
+                                data.references.forEach((ref, index) => {
+                                    const sourceItem = document.createElement('div');
+                                    sourceItem.className = 'bg-gray-50 p-3 rounded-md';
+                                    let refContent = '';
+                                    if (typeof ref === 'object') {
+                                        if (ref.content) refContent = ref.content;
+                                        else if (ref.text) refContent = ref.text;
+                                        else if (ref.title) refContent = ref.title;
+                                        else refContent = JSON.stringify(ref).substring(0, 100) + '...';
+                                    } else {
+                                        refContent = ref || '相关内容';
+                                    }
+                                    
+                                    let filenameInfo = '';
+                                    if (ref && ref.filename) {
+                                        filenameInfo = ref.filename + ': ';
+                                    }
+                                    
+                                    sourceItem.innerHTML = "<div class=\"text-sm font-medium text-primary\" style=\"color: #fd85a6;\">参考 " + (index + 1) + "</div><div class=\"text-sm text-gray-600 mt-1\">" + filenameInfo + refContent + "</div>";
+                                    sourcesList.appendChild(sourceItem);
+                                });
+                            }
+                            else {
+                                sourcesList.innerHTML = '<p class="text-gray-500 text-sm">无参考来源信息</p>';
+                            }
+                            
+                            // 显示结果区域
+                            if (resultsSection) resultsSection.classList.remove('hidden');
+                            
+                            // 初始化语音播放功能
+                            initSpeechButton();
+                        } else if (data.error) {
+                            // 显示API返回的错误
+                            showError(data.error);
+                        } else {
+                            showError('处理请求失败，请稍后重试');
+                        }
+                    })
+                    .catch(error => {
+                        console.error('请求错误:', error);
+                        showError('请求处理失败，请稍后重试');
+                    });
+                });
+            }
+            
+            // 示例问题点击事件
+            exampleQueries.forEach(question => {
+                question.addEventListener('click', function() {
+                    if (searchInput) {
+                        searchInput.value = this.textContent.trim();
+                        searchInput.focus();
+                    }
+                });
+            });
+            
+            // 语音播放功能
+            let utterance = null;
+            let isPlaying = false;
+            
+            function initSpeechButton() {
+                const speechButton = document.getElementById('speechButton');
+                if (speechButton && 'speechSynthesis' in window) {
+                    speechButton.addEventListener('click', toggleSpeech);
+                    speechButton.disabled = false;
+                } else if (speechButton) {
+                    speechButton.disabled = true;
+                    speechButton.title = '您的浏览器不支持语音播放功能';
+                    speechButton.classList.add('text-gray-400');
+                    speechButton.classList.remove('text-primary', 'hover:text-primary/80');
+                }
+            }
+            
+            function toggleSpeech() {
+                const speechButton = document.getElementById('speechButton');
+                const answerText = answerContent.textContent.trim();
+                
+                if (!answerText) {
+                    showError('没有可播放的内容');
+                    return;
+                }
+                
+                // 停止任何正在进行的语音
+                window.speechSynthesis.cancel();
+                
+                if (!isPlaying) {
+                    // 开始播放语音
+                    playSpeech(answerText, speechButton);
+                } else {
+                    // 停止播放
+                    isPlaying = false;
+                    if (speechButton) {
+                        speechButton.innerHTML = "<i class=\"fa fa-volume-up mr-1\" style=\"color: #fd85a6;\"></i> 语音播放";
+                    }
+                }
+            }
+            
+            function playSpeech(text, button) {
+                // 创建语音合成对象
+                utterance = new SpeechSynthesisUtterance(text);
+                
+                // 设置语音参数
+                utterance.lang = 'zh-CN'; // 中文语音
+                utterance.rate = 1.0; // 语速
+                utterance.pitch = 1.0; // 音调
+                
+                // 选择合适的中文语音
+                const voices = window.speechSynthesis.getVoices();
+                const chineseVoice = voices.find(voice => 
+                    voice.lang === 'zh-CN' || voice.name.includes('Chinese') || voice.name.includes('中文')
+                );
+                if (chineseVoice) {
+                    utterance.voice = chineseVoice;
+                }
+                
+                // 播放开始事件
+                utterance.onstart = function() {
+                    isPlaying = true;
+                    if (button) {
+                        button.innerHTML = "<i class=\"fa fa-pause mr-1\" style=\"color: #fd85a6;\"></i> 暂停播放";
+                    }
+                };
+                
+                // 播放结束事件
+                utterance.onend = function() {
+                    isPlaying = false;
+                    if (button) {
+                        button.innerHTML = "<i class=\"fa fa-volume-up mr-1\" style=\"color: #fd85a6;\"></i> 语音播放";
+                    }
+                };
+                
+                // 播放错误事件
+                utterance.onerror = function(event) {
+                    isPlaying = false;
+                    if (button) {
+                        button.innerHTML = "<i class=\"fa fa-volume-up mr-1\" style=\"color: #fd85a6;\"></i> 语音播放";
+                    }
+                    console.error('语音播放错误:', event.error);
+                    // 不显示错误信息
+                };
+                
+                // 开始播放
+                window.speechSynthesis.speak(utterance);
+            }
+            
+            // 获取可用语音列表
+            window.speechSynthesis.onvoiceschanged = function() {
+                // 语音列表更新时可能需要的操作
+            };
+        }); // 闭合DOMContentLoaded事件监听器
+    </script>
+</body>
+</html>

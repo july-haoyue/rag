@@ -1,0 +1,42 @@
+# 环境变量文件
+.env
+
+# Python缓存文件
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Jupyter Notebook检查点
+.ipynb_checkpoints/
+
+# IDE相关文件
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# 操作系统文件
+.DS_Store
+Thumbs.db
+
+# 日志文件
+*.log
+
+# 临时文件
+*.tmp
+*.temp
+*.cache
+
+# 数据文件（可选，根据需要取消注释）
+# processed_data/
+# final_processed_data/
+# fixed_processed_data/
+# processed_clean_data/
+
+# 索引文件（可选，根据需要取消注释）
+# simple_index/
+# final_index/
+# fixed_index/
